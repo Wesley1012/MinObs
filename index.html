@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obsidian‑подобное окно</title>
+  <style>
+    /* Глобальные переменные — тёмная тема Obsidian */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252525;
+      --bg-tertiary: #2d2d2d;
+      --border-color: #3a3a3a;
+      --text-primary: #d4d4d4;
+      --text-secondary: #a0a0a0;
+      --text-muted: #6e6e6e;
+      --accent: #7f6df2;
+      --accent-dim: #5e4d9e;
+      --hover-bg: #2f2f2f;
+      --radius: 6px;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ——— ВЕРХНЯЯ ПАНЕЛЬ (title bar) ——— */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 12px;
+      flex-shrink: 0;
+      user-select: none;
+      gap: 12px;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 200px;
+    }
+
+    .titlebar-icon {
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .titlebar-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      background: var(--bg-tertiary);
+      border-radius: var(--radius) var(--radius) 0 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: default;
+      border: 1px solid transparent;
+      border-bottom: none;
+      position: relative;
+      top: 1px;
+    }
+
+    .tab.active {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border-color: var(--border-color);
+    }
+
+    .tab .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .tab .dot.inactive {
+      background: var(--text-muted);
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 120px;
+      justify-content: flex-end;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .win-btn {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      cursor: default;
+    }
+
+    /* ——— ОСНОВНОЙ КОНТЕЙНЕР ——— */
+    .app {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ——— ЛЕВАЯ ПАНЕЛЬ ——— */
+    .sidebar-left {
+      width: 260px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .sidebar-header .icon-btn {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: default;
+    }
+
+    .sidebar-header .icon-btn:hover {
+      background: var(--hover-bg);
+    }
+
+    .file-tree {
+      padding: 4px 8px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: default;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-item:hover {
+      background: var(--hover-bg);
+    }
+
+    .file-item.active {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .file-item .folder-icon {
+      color: var(--text-muted);
+      font-size: 12px;
+      width: 16px;
+      text-align: center;
+    }
+
+    .file-item .file-icon {
+      color: var(--text-muted);
+      font-size: 12px;
+      width: 16px;
+      text-align: center;
+    }
+
+    .file-item .badge {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg-primary);
+      padding: 0 5px;
+      border-radius: 8px;
+    }
+
+    .indent-1 { padding-left: 28px; }
+    .indent-2 { padding-left: 48px; }
+
+    /* ——— ЦЕНТРАЛЬНАЯ ОБЛАСТЬ ——— */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--border-color);
+      gap: 16px;
+      flex-shrink: 0;
+      background: var(--bg-primary);
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .breadcrumb .sep {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+
+    .breadcrumb .current {
+      color: var(--text-primary);
+    }
+
+    .editor-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .editor-actions span {
+      cursor: default;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .editor-actions span:hover {
+      background: var(--hover-bg);
+    }
+
+    /* ——— ОБЛАСТЬ РЕДАКТОРА ——— */
+    .editor {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px 48px 64px;
+      font-size: 16px;
+      line-height: 1.7;
+      color: var(--text-primary);
+    }
+
+    .editor h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .editor h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 28px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .editor h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 20px 0 6px;
+    }
+
+    .editor p {
+      margin: 8px 0;
+    }
+
+    .editor .meta {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .editor .meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .editor ul, .editor ol {
+      margin: 8px 0 8px 24px;
+    }
+
+    .editor li {
+      margin: 2px 0;
+    }
+
+    .editor code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #e0b0ff;
+    }
+
+    .editor pre {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin: 14px 0;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      color: #c9d1d9;
+    }
+
+    .editor pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    .editor blockquote {
+      border-left: 3px solid var(--accent-dim);
+      padding: 4px 0 4px 16px;
+      margin: 12px 0;
+      color: var(--text-secondary);
+      background: var(--bg-secondary);
+      border-radius: 0 4px 4px 0;
+      padding: 8px 16px;
+    }
+
+    .editor .callout {
+      border-left: 3px solid var(--accent);
+      background: rgba(127, 109, 242, 0.08);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 10px 16px;
+      margin: 14px 0;
+    }
+
+    .editor .callout strong {
+      color: var(--accent);
+    }
+
+    .editor .tag {
+      display: inline-block;
+      background: var(--bg-tertiary);
+      color: var(--accent);
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      margin: 0 2px;
+      font-weight: 500;
+    }
+
+    .editor .internal-link {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--accent-dim);
+      cursor: default;
+    }
+
+    .editor .internal-link:hover {
+      border-bottom-style: solid;
+    }
+
+    /* ——— ПРАВАЯ ПАНЕЛЬ ——— */
+    .sidebar-right {
+      width: 240px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .right-panel-section {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .right-panel-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .backlink-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: default;
+    }
+
+    .backlink-item:hover {
+      color: var(--text-primary);
+    }
+
+    .backlink-item .bullet {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag-cloud .tag-item {
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      cursor: default;
+    }
+
+    .tag-cloud .tag-item:hover {
+      background: var(--hover-bg);
+      color: var(--text-primary);
+    }
+
+    /* ——— СТАТУС-БАР ——— */
+    .statusbar {
+      display: flex;
+      align-items: center;
+      height: 26px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      gap: 16px;
+      user-select: none;
+    }
+
+    .statusbar .status-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .statusbar .spacer {
+      flex: 1;
+    }
+
+    /* Скроллбары в стиле Obsidian */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4a4a;
+    }
+
+    /* Небольшой акцент для активных элементов */
+    .active-accent {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="titlebar-icon">O</div>
+      <span style="font-size:12px;color:var(--text-secondary);">Vault / Notes</span>
+    </div>
+
+    <div class="titlebar-center">
+      <div class="tab active">
+        <span class="dot"></span>
+        Добро пожаловать
+      </div>
+      <div class="tab">
+        <span class="dot inactive"></span>
+        Проект
+      </div>
+      <div class="tab">
+        <span class="dot inactive"></span>
+        Идеи
+      </div>
+    </div>
+
+    <div class="titlebar-right">
+      <div class="win-btn"></div>
+      <div class="win-btn"></div>
+      <div class="win-btn"></div>
+    </div>
+  </div>
+
+  <!-- ОСНОВНОЙ КОНТЕНТ -->
+  <div class="app">
+
+    <!-- ЛЕВАЯ ПАНЕЛЬ -->
+    <aside class="sidebar-left">
+      <div class="sidebar-header">
+        <span>Файлы</span>
+        <div class="icon-btn">＋</div>
+      </div>
+      <div class="file-tree">
+        <div class="file-item">
+          <span class="folder-icon">📁</span>
+          <span>Заметки</span>
+          <span class="badge">12</span>
+        </div>
+        <div class="file-item indent-1 active">
+          <span class="file-icon">📄</span>
+          <span>Добро пожаловать</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>Проект</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>Идеи</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>Ссылки</span>
+        </div>
+
+        <div class="file-item" style="margin-top:6px;">
+          <span class="folder-icon">📁</span>
+          <span>Дневник</span>
+          <span class="badge">7</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>2025-03-21</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>2025-03-20</span>
+        </div>
+
+        <div class="file-item" style="margin-top:6px;">
+          <span class="folder-icon">📁</span>
+          <span>Ресурсы</span>
+          <span class="badge">5</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>Шпаргалка CSS</span>
+        </div>
+        <div class="file-item indent-1">
+          <span class="file-icon">📄</span>
+          <span>Сниппеты</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ЦЕНТРАЛЬНАЯ ОБЛАСТЬ -->
+    <main class="main-content">
+      <div class="editor-header">
+        <div class="breadcrumb">
+          <span>Заметки</span>
+          <span class="sep">›</span>
+          <span class="current">Добро пожаловать</span>
+        </div>
+        <div class="editor-actions">
+          <span title="Режим чтения">📖</span>
+          <span title="Редактировать">✏️</span>
+          <span title="Ещё">⋯</span>
+        </div>
+      </div>
+
+      <div class="editor">
+        <h1>Добро пожаловать</h1>
+        <div class="meta">
+          <span>📅 21 марта 2025</span>
+          <span>🏷️ #obsidian #старт</span>
+          <span>⏱️ 2 мин чтения</span>
+        </div>
+
+        <p>Это демонстрационная страница, оформленная в стиле <strong>Obsidian</strong> — приложения для заметок, основанного на локальных Markdown‑файлах.</p>
+
+        <h2>Основные возможности</h2>
+        <p>Интерфейс повторяет характерные черты десктопной версии:</p>
+        <ul>
+          <li>Трёхпанельный макет: файлы — редактор — контекст</li>
+          <li>Тёмная тема с акцентным фиолетовым цветом</li>
+          <li>Вкладки документов и хлебные крошки</li>
+          <li>Стилизованные код‑блоки, цитаты и callout‑блоки</li>
+          <li>Внутренние ссылки и теги</li>
+        </ul>
+
+        <h2>Пример кода</h2>
+        <p>Блок кода с подсветкой в духе Obsidian:</p>
+        <pre><code>// Простой пример на JavaScript
+function greet(name) {
+  return `Привет, ${name}!`;
+}
+
+console.log(greet('Obsidian'));</code></pre>
+
+        <div class="callout">
+          <strong>💡 Совет.</strong> Используйте <span class="tag">#теги</span> для категоризации заметок и <a class="internal-link" href="#">[[внутренние ссылки]]</a> для связывания идей.
+        </div>
+
+        <h2>Цитата</h2>
+        <blockquote>
+          Заметки — это не просто записи. Это инструмент мышления, который помогает соединять идеи и находить неочевидные связи.
+        </blockquote>
+
+        <h3>Связанные заметки</h3>
+        <p>Смотрите также <a class="internal-link" href="#">[[Проект]]</a>, <a class="internal-link" href="#">[[Идеи]]</a> и <a class="internal-link" href="#">[[Ссылки]]</a>.</p>
+
+        <p style="margin-top:32px;color:var(--text-muted);font-size:13px;">
+          ← <a class="internal-link" href="#">Предыдущая заметка</a>
+          &nbsp;·&nbsp;
+          <a class="internal-link" href="#">Следующая заметка</a> →
+        </p>
+      </div>
+    </main>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ -->
+    <aside class="sidebar-right">
+      <div class="right-panel-section">
+        <h4>Обратные ссылки</h4>
+        <div class="backlink-item"><span class="bullet"></span> Проект</div>
+        <div class="backlink-item"><span class="bullet"></span> Идеи</div>
+        <div class="backlink-item"><span class="bullet"></span> Ссылки</div>
+        <div class="backlink-item"><span class="bullet"></span> Шпаргалка CSS</div>
+      </div>
+
+      <div class="right-panel-section">
+        <h4>Теги</h4>
+        <div class="tag-cloud">
+          <span class="tag-item">#obsidian</span>
+          <span class="tag-item">#старт</span>
+          <span class="tag-item">#заметки</span>
+          <span class="tag-item">#продуктивность</span>
+          <span class="tag-item">#markdown</span>
+        </div>
+      </div>
+
+      <div class="right-panel-section">
+        <h4>Исходящие ссылки</h4>
+        <div class="backlink-item"><span class="bullet"></span> Проект</div>
+        <div class="backlink-item"><span class="bullet"></span> Идеи</div>
+        <div class="backlink-item"><span class="bullet"></span> Ссылки</div>
+      </div>
+
+      <div class="right-panel-section" style="border-bottom:none;">
+        <h4>Свойства</h4>
+        <div style="font-size:12px;color:var(--text-secondary);display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);">Статус</span>
+            <span>Черновик</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);">Создано</span>
+            <span>21.03.2025</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:var(--text-muted);">Изменено</span>
+            <span>21.03.2025</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- СТАТУС-БАР -->
+  <div class="statusbar">
+    <div class="status-item">📄 Markdown</div>
+    <div class="status-item">🔗 3 обратные ссылки</div>
+    <div class="status-item">📝 124 слова</div>
+    <div class="spacer"></div>
+    <div class="status-item">UTF-8</div>
+    <div class="status-item">LF</div>
+    <div class="status-item">Obsidian v1.5</div>
+  </div>
+
+</body>
+</html>
